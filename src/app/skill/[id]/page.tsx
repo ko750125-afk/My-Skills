@@ -52,6 +52,8 @@ export default async function SkillDetailPage({ params }: { params: Promise<{ id
   } catch (err) {
     isLocalFileAvailable = false;
     markdownContent = `### 💡 로컬 전용 마크다운 안내
+> ⚠️ **로컬 환경에서만 스킬을 등록하고 확인하실 수 있습니다.**
+
 본 스킬의 상세 내용(\`SKILL.md\`)은 **대표님 개인 PC 로컬 드라이브**에 보관되어 있습니다.
 
 * **스킬명:** ${skill.title}

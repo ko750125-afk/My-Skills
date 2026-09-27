@@ -100,21 +100,30 @@ export default function HomePage() {
           <p className="text-muted-foreground text-sm">
             {isLocal
               ? '카드를 클릭하면 로컬 SKILL.md 마크다운 파일이 열립니다.'
-              : '외부에서는 등록된 스킬명과 폴더 경로를 확인하고 원클릭 복사할 수 있습니다.'}
+              : '현재 화면은 열람 전용 모드입니다. 아래 경로를 확인하거나 복사하여 활용하실 수 있습니다.'}
           </p>
         </div>
 
-        {/* 신규 등록 버튼 (로컬 전용) */}
+        {/* 신규 등록 버튼 (로컬 전용) or 배포 모드 안내 멘트 */}
         {isLocal ? (
           <Button onClick={() => setIsAdding(!isAdding)} variant={isAdding ? 'secondary' : 'default'}>
             {isAdding ? '취소' : <><Plus className="w-4 h-4 mr-2" /> NEW SKILL</>}
           </Button>
         ) : (
-          <div className="text-xs text-muted-foreground bg-muted/60 px-3 py-1.5 rounded-md border border-border">
-            ✨ 신규 스킬 등록은 내 컴퓨터(로컬)에서 진행됩니다.
+          <div className="flex items-center gap-2 text-xs md:text-sm font-medium text-amber-600 dark:text-amber-400 bg-amber-500/10 border border-amber-500/20 px-3.5 py-2 rounded-lg shadow-sm">
+            <span>⚠️ 로컬 환경에서만 스킬을 등록하고 확인하실 수 있습니다.</span>
           </div>
         )}
       </div>
+
+      {/* 배포 환경 전용 안내 알림 카드 */}
+      {!isLocal && (
+        <div className="bg-muted/40 border border-border/80 rounded-lg p-4 flex items-center justify-between gap-4 text-xs text-muted-foreground">
+          <p>
+            💡 <strong>안내:</strong> 새 스킬 등록 및 상세 파일(SKILL.md) 확인은 내 컴퓨터의 로컬 주소(<code className="bg-muted px-1.5 py-0.5 rounded font-mono text-foreground">http://localhost:3000</code>)에서만 가능합니다.
+          </p>
+        </div>
+      )}
 
       {/* 신규 등록 폼 (로컬) */}
       {isAdding && isLocal && (
