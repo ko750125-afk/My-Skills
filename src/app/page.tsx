@@ -4,7 +4,10 @@ import { useState, useEffect } from 'react';
 import { Card, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { FolderOpen, Plus } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { FolderOpen, Plus, Copy, Check, ExternalLink, Laptop, Cloud } from 'lucide-react';
+import Link from 'next/link';
+import defaultSkills from '../../skills.json';
 
 interface SkillEntry {
   id: string;
@@ -13,16 +16,40 @@ interface SkillEntry {
 }
 
 export default function HomePage() {
-  const [skills, setSkills] = useState<SkillEntry[]>([]);
+  const [skills, setSkills] = useState<SkillEntry[]>(defaultSkills as SkillEntry[]);
   const [newTitle, setNewTitle] = useState('');
   const [newPath, setNewPath] = useState('');
   const [isAdding, setIsAdding] = useState(false);
+  const [isLocal, setIsLocal] = useState(true);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
 
   useEffect(() => {
+    // 로컬 환경인지 Vercel 등 배포 환경인지 확인
+    if (typeof window !== 'undefined') {
+      const isLocalHost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+      setIsLocal(isLocalHost);
+    }
+
+    // 최신 스킬 목록 fetch
     fetch('/api/skills')
       .then(res => res.json())
-      .then(data => setSkills(data));
+      .then(data => {
+        if (Array.isArray(data) && data.length > 0) {
+          setSkills(data);
+        }
+      })
+      .catch(() => {
+        // 실패 시 defaultSkills 유지
+      });
   }, []);
+
+  const handleCopyPath = (id: string, pathText: string, e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    navigator.clipboard.writeText(pathText);
+    setCopiedId(id);
+    setTimeout(() => setCopiedId(null), 2000);
+  };
 
   const handleAddSkill = async () => {
     if (!newTitle.trim() || !newPath.trim()) return;
@@ -37,11 +64,15 @@ export default function HomePage() {
       setNewTitle('');
       setNewPath('');
       setIsAdding(false);
-      fetch('/api/skills').then(res => res.json()).then(data => setSkills(data));
+      fetch('/api/skills')
+        .then(res => res.json())
+        .then(data => setSkills(data));
     }
   };
 
-  const handleOpenExplorer = async (folderPath: string) => {
+  const handleOpenExplorer = async (folderPath: string, e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
     await fetch('/api/open-explorer', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -51,20 +82,43 @@ export default function HomePage() {
 
   return (
     <div className="p-8 space-y-8 max-w-5xl mx-auto">
-      <div className="flex justify-between items-end border-b border-border pb-4">
+      {/* 헤더 섹션 */}
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4 border-b border-border pb-5">
         <div>
-          <h1 className="text-3xl font-bold mb-2">My All Skills</h1>
+          <div className="flex items-center gap-3 mb-2">
+            <h1 className="text-3xl font-extrabold tracking-tight">My All Skills</h1>
+            {isLocal ? (
+              <Badge variant="outline" className="bg-emerald-500/10 text-emerald-600 border-emerald-500/20 flex items-center gap-1 py-1">
+                <Laptop className="w-3.5 h-3.5" /> 로컬 모드
+              </Badge>
+            ) : (
+              <Badge variant="outline" className="bg-blue-500/10 text-blue-600 border-blue-500/20 flex items-center gap-1 py-1">
+                <Cloud className="w-3.5 h-3.5" /> 배포 열람 모드
+              </Badge>
+            )}
+          </div>
           <p className="text-muted-foreground text-sm">
-            카드를 클릭하면 skill.md파일이 열립니다.
+            {isLocal
+              ? '카드를 클릭하면 로컬 SKILL.md 마크다운 파일이 열립니다.'
+              : '외부에서는 등록된 스킬명과 폴더 경로를 확인하고 원클릭 복사할 수 있습니다.'}
           </p>
         </div>
-        <Button onClick={() => setIsAdding(!isAdding)} variant={isAdding ? "secondary" : "default"}>
-          {isAdding ? "취소" : <><Plus className="w-4 h-4 mr-2" /> NEW SKILL</>}
-        </Button>
+
+        {/* 신규 등록 버튼 (로컬 전용) */}
+        {isLocal ? (
+          <Button onClick={() => setIsAdding(!isAdding)} variant={isAdding ? 'secondary' : 'default'}>
+            {isAdding ? '취소' : <><Plus className="w-4 h-4 mr-2" /> NEW SKILL</>}
+          </Button>
+        ) : (
+          <div className="text-xs text-muted-foreground bg-muted/60 px-3 py-1.5 rounded-md border border-border">
+            ✨ 신규 스킬 등록은 내 컴퓨터(로컬)에서 진행됩니다.
+          </div>
+        )}
       </div>
 
-      {isAdding && (
-        <Card className="bg-card/50 border-dashed border-2">
+      {/* 신규 등록 폼 (로컬) */}
+      {isAdding && isLocal && (
+        <Card className="bg-card/50 border-dashed border-2 shadow-sm animate-in fade-in-50 duration-200">
           <div className="p-6 flex flex-col md:flex-row gap-4 items-end">
             <div className="flex-1 space-y-2">
               <label className="text-sm font-medium">스킬명</label>
@@ -87,41 +141,75 @@ export default function HomePage() {
         </Card>
       )}
 
+      {/* 스킬 카드 그리드 */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {skills.map(skill => (
           <Card
             key={skill.id}
-            className="hover:border-primary transition-colors bg-card border shadow-sm group relative"
+            className="hover:border-primary/60 transition-all duration-200 bg-card border shadow-sm group relative flex flex-col justify-between overflow-hidden"
           >
-            <div className="absolute top-4 right-4 z-10">
+            {/* 카드 액션 버튼 영역 (우측 상단) */}
+            <div className="absolute top-4 right-4 z-10 flex items-center gap-1.5">
+              {/* 경로 복사 버튼 (항상 유용함) */}
               <Button
                 variant="outline"
                 size="sm"
-                onClick={(e) => {
-                  e.preventDefault();
-                  handleOpenExplorer(skill.path);
-                }}
-                className="opacity-0 group-hover:opacity-100 transition-opacity"
+                onClick={(e) => handleCopyPath(skill.id, skill.path, e)}
+                className="h-8 px-2.5 text-xs bg-card/80 backdrop-blur hover:bg-muted"
+                title="폴더 경로 복사"
               >
-                <FolderOpen className="w-4 h-4 mr-2" />
-                폴더 열기
+                {copiedId === skill.id ? (
+                  <>
+                    <Check className="w-3.5 h-3.5 mr-1 text-emerald-500" />
+                    <span className="text-emerald-600 font-medium">복사됨!</span>
+                  </>
+                ) : (
+                  <>
+                    <Copy className="w-3.5 h-3.5 mr-1 text-muted-foreground" />
+                    <span>경로 복사</span>
+                  </>
+                )}
               </Button>
+
+              {/* 로컬 전용 폴더 열기 버튼 */}
+              {isLocal && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={(e) => handleOpenExplorer(skill.path, e)}
+                  className="h-8 px-2.5 text-xs bg-card/80 backdrop-blur hover:bg-muted opacity-0 group-hover:opacity-100 transition-opacity"
+                  title="윈도우 탐색기로 열기"
+                >
+                  <FolderOpen className="w-3.5 h-3.5 mr-1" />
+                  열기
+                </Button>
+              )}
             </div>
-            <a href={`/skill/${skill.id}`} className="block h-full cursor-pointer">
-              <CardHeader>
-                <div className="flex items-start justify-between pr-24">
-                  <CardTitle className="text-xl mb-2 group-hover:text-primary transition-colors">{skill.title}</CardTitle>
+
+            {/* 카드 본문 링크 */}
+            <Link href={`/skill/${skill.id}`} className="block p-6 cursor-pointer flex-1">
+              <CardHeader className="p-0">
+                <div className="flex items-start justify-between pr-36">
+                  <CardTitle className="text-xl font-bold mb-2 group-hover:text-primary transition-colors flex items-center gap-1.5">
+                    {skill.title}
+                    <ExternalLink className="w-3.5 h-3.5 opacity-0 group-hover:opacity-60 transition-opacity" />
+                  </CardTitle>
                 </div>
-                <CardDescription className="font-mono text-xs break-all bg-muted/50 p-2 rounded">
-                  {skill.path}
+                <CardDescription
+                  className="font-mono text-xs break-all bg-muted/60 hover:bg-muted p-2.5 rounded-md border border-border/50 text-foreground/80 mt-2 transition-colors flex items-center justify-between"
+                  onClick={(e) => handleCopyPath(skill.id, skill.path, e)}
+                >
+                  <span className="truncate pr-2">{skill.path}</span>
+                  <span className="text-[10px] text-muted-foreground shrink-0 font-sans">클릭시 복사</span>
                 </CardDescription>
               </CardHeader>
-            </a>
+            </Link>
           </Card>
         ))}
+
         {skills.length === 0 && !isAdding && (
-          <div className="col-span-full text-center text-muted-foreground p-8 bg-muted/20 rounded-lg border border-dashed">
-            우측 상단의 '새 스킬 등록' 버튼을 눌러 스킬 폴더를 등록해보세요.
+          <div className="col-span-full text-center text-muted-foreground p-12 bg-muted/20 rounded-xl border border-dashed">
+            등록된 스킬이 없습니다.
           </div>
         )}
       </div>

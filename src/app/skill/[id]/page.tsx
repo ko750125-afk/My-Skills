@@ -7,6 +7,8 @@ import remarkGfm from 'remark-gfm';
 import remarkBreaks from 'remark-breaks';
 import { Button } from '@/components/ui/button';
 
+import defaultSkills from '../../../../skills.json';
+
 interface SkillEntry {
   id: string;
   title: string;
@@ -16,7 +18,7 @@ interface SkillEntry {
 export default async function SkillDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const resolvedParams = await params;
   
-  // JSON 파일에서 스킬 경로 찾기
+  // JSON 파일에서 스킬 경로 찾기 (실시간 파일 or 번들 폴백)
   const jsonPath = path.join(process.cwd(), 'skills.json');
   let skill: SkillEntry | undefined;
   
@@ -25,20 +27,38 @@ export default async function SkillDetailPage({ params }: { params: Promise<{ id
     const skills: SkillEntry[] = JSON.parse(data);
     skill = skills.find(s => s.id === resolvedParams.id);
   } catch (err) {
-    console.error('Failed to read skills.json', err);
+    skill = (defaultSkills as SkillEntry[]).find(s => s.id === resolvedParams.id);
   }
 
-  if (!skill) return <div className="p-8 text-xl font-bold">Skill not found in skills.json</div>;
+  if (!skill) {
+    skill = (defaultSkills as SkillEntry[]).find(s => s.id === resolvedParams.id);
+  }
+
+  if (!skill) return (
+    <div className="p-8 text-center max-w-md mx-auto mt-20 bg-card border rounded-xl p-8 shadow-sm">
+      <h2 className="text-xl font-bold mb-2">스킬을 찾을 수 없습니다</h2>
+      <p className="text-sm text-muted-foreground mb-4">등록되지 않았거나 삭제된 스킬입니다.</p>
+      <Link href="/"><Button variant="default">목록으로 돌아가기</Button></Link>
+    </div>
+  );
 
   // 해당 절대 경로에서 SKILL.md 파일 읽기
   let markdownContent = '';
   const skillMdPath = path.join(skill.path, 'SKILL.md');
+  let isLocalFileAvailable = true;
   
   try {
     markdownContent = await fs.readFile(skillMdPath, 'utf-8');
   } catch (err) {
-    console.error('Failed to read SKILL.md', err);
-    markdownContent = `> ⚠️ **Error**: 지정된 경로에서 \`SKILL.md\` 파일을 찾을 수 없습니다.\n\n경로: \`${skillMdPath}\`\n해당 위치에 파일이 존재하는지 확인해주세요.`;
+    isLocalFileAvailable = false;
+    markdownContent = `### 💡 로컬 전용 마크다운 안내
+본 스킬의 상세 내용(\`SKILL.md\`)은 **대표님 개인 PC 로컬 드라이브**에 보관되어 있습니다.
+
+* **스킬명:** ${skill.title}
+* **보관 경로:** \`${skill.path}\`
+
+> **안내:** 웹 배포(Vercel) 환경에서는 보안상 개인 PC의 로컬 파일에 직접 접근할 수 없습니다.  
+> 마크다운 전문 열람 및 편집은 **대표님 컴퓨터의 로컬 주소(\`http://localhost:3000\`)**에서 이용해 주시기 바랍니다.`;
   }
 
   return (
